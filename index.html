@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hacking Vault - Database</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+        
+        * {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #0d1235 50%, #0a0e27 100%);
+            background-attachment: fixed;
+        }
+        
+        .terminal-grid {
+            background: linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+    </style>
+</head>
+<body class="text-green-400 min-h-screen antialiased">
+    <div class="terminal-grid fixed inset-0 pointer-events-none z-0"></div>
+    <div class="fixed inset-0 bg-gradient-to-b from-cyan-900/5 to-transparent pointer-events-none z-1"></div>
+    
+    <!-- Header -->
+    <header class="relative border-b-2 border-green-500 bg-[#0a0e27]/90 backdrop-blur-sm z-20 sticky top-0">
+        <div class="container mx-auto px-4 py-4 md:py-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="text-center md:text-left">
+                    <h1 class="text-2xl md:text-3xl font-bold text-green-400 flex items-center gap-2 justify-center md:justify-start">
+                        <span class="text-green-500">></span>HACKING VAULT
+                    </h1>
+                    <p class="text-xs md:text-sm text-gray-400 mt-1">
+                        <span class="text-green-500">$</span> Tutorial Database v2.0
+                    </p>
+                </div>
+                <div class="flex flex-col gap-2 w-full md:w-auto">
+                    <button id="uploadBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded border-2 border-blue-400 transition-all hover:shadow-lg hover:shadow-blue-500/50 font-bold text-sm">
+                        📤 Cargar Excel
+                    </button>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none;">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="relative z-10">
+        <div class="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
+            
+            <!-- Search Bar Section -->
+            <div class="bg-[#0a0e27]/70 border-2 border-green-500 rounded-lg p-6 mb-6 backdrop-blur-sm">
+                <h2 class="text-2xl font-bold text-green-400 mb-3 flex items-center gap-2">
+                    <span class="text-green-500">>></span> Busca tu tutorial de hacking
+                </h2>
+                <p class="text-gray-400 text-sm mb-4">Filtra por técnica, dificultad, sistema operativo o certificación</p>
+                
+                <div class="flex gap-3 mb-4">
+                    <input type="text" id="searchInput" placeholder="Busca por máquina o técnica..." 
+                           class="flex-1 bg-[#0a0e27]/80 border border-green-500 rounded px-4 py-3 text-green-400 placeholder-gray-500 focus:outline-none focus:border-green-300 focus:ring-2 focus:ring-green-500/30">
+                    <button id="toggleFiltersBtn" class="bg-green-500 hover:bg-green-400 text-black px-6 py-3 rounded border-2 border-green-400 transition-all hover:shadow-lg hover:shadow-green-500/50 font-bold whitespace-nowrap">
+                        [MOSTRAR FILTROS]
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="exactMatchCheckbox" class="w-4 h-4 cursor-pointer">
+                    <label for="exactMatchCheckbox" class="text-gray-400 text-sm cursor-pointer">Coincidencia exacta (solo nombre)</label>
+                </div>
+            </div>
+
+            <!-- Filters Section -->
+            <div id="filtersContainer" class="bg-[#0a0e27]/70 border border-green-500/30 rounded-lg p-6 mb-6 backdrop-blur-sm" style="display: none;">
+                <!-- Filter Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- Dificultad -->
+                    <div>
+                        <h3 class="text-sm font-bold text-green-500 mb-3 flex items-center gap-1">
+                            <span>$</span> Dificultad
+                        </h3>
+                        <div id="difficultyFilters" class="flex flex-col gap-2"></div>
+                    </div>
+
+                    <!-- Sistema Operativo -->
+                    <div>
+                        <h3 class="text-sm font-bold text-green-500 mb-3 flex items-center gap-1">
+                            <span>$</span> Sistema Operativo
+                        </h3>
+                        <div id="osFilters" class="flex flex-col gap-2"></div>
+                    </div>
+
+                    <!-- Certificaciones -->
+                    <div>
+                        <h3 class="text-sm font-bold text-green-500 mb-3 flex items-center gap-1">
+                            <span>$</span> Like
+                        </h3>
+                        <div id="certificateFilters" class="flex flex-col gap-2" style="max-height: 250px; overflow-y: auto;"></div>
+                    </div>
+
+                    <!-- Técnicas -->
+                    <div>
+                        <h3 class="text-sm font-bold text-green-500 mb-3 flex items-center gap-1">
+                            <span>$</span> Temática
+                        </h3>
+                        <div id="techniqueFilters" class="flex flex-col gap-2" style="max-height: 250px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+
+                <!-- Clear Button -->
+                <div class="mt-6 flex justify-end">
+                    <button id="clearFiltersBtn" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-4 py-2 rounded border border-red-500/50 transition-all text-sm font-bold">
+                        [LIMPIAR]
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div class="bg-[#0a0e27]/70 border border-green-500/30 rounded-lg p-4 md:p-6 backdrop-blur-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg md:text-xl font-bold text-green-400 flex items-center gap-2">
+                        <span class="text-green-500">$</span> Máquinas
+                        <span id="resultCount" class="text-gray-400 text-sm font-normal">(0)</span>
+                    </h2>
+                </div>
+
+                <div id="statusDiv" class="text-center py-4 text-yellow-400">⏳ Cargando Excel...</div>
+                
+                <!-- Grid de Tarjetas -->
+                <div id="machineTableBody" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" style="max-height: 800px; overflow-y: auto;">
+                    <div class="text-center py-8 text-gray-400 col-span-full">Cargando datos...</div>
+                </div>
+
+                <div id="emptyState" style="display: none;" class="text-center py-8 text-gray-400">
+                    No hay resultados con estos filtros
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="mt-6 text-center text-xs text-gray-500">
+                <p>💚 Hacking Vault - Tutorial Database v2.0</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        let filteredData = [];
+        const filters = { 
+            search: '', 
+            os: [], 
+            difficulty: [], 
+            certificates: [], 
+            techniques: [],
+            exactMatch: false
+        };
+
+        // Inicializar
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('✅ Página cargada');
+            loadExcel();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', e => {
+                filters.search = e.target.value.toLowerCase();
+                applyFilters();
+            });
+
+            document.getElementById('exactMatchCheckbox').addEventListener('change', e => {
+                filters.exactMatch = e.target.checked;
+                applyFilters();
+            });
+
+            document.getElementById('toggleFiltersBtn').addEventListener('click', btn => {
+                const container = document.getElementById('filtersContainer');
+                const isHidden = container.style.display === 'none';
+                container.style.display = isHidden ? 'block' : 'none';
+                btn.target.textContent = isHidden ? '[OCULTAR FILTROS]' : '[MOSTRAR FILTROS]';
+            });
+
+            document.getElementById('uploadBtn').addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+            document.getElementById('fileInput').addEventListener('change', e => {
+                if (e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = event => parseExcelFile(event.target.result);
+                    reader.readAsArrayBuffer(e.target.files[0]);
+                }
+            });
+            document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+                filters.search = '';
+                filters.os = [];
+                filters.difficulty = [];
+                filters.certificates = [];
+                filters.techniques = [];
+                filters.exactMatch = false;
+                document.getElementById('searchInput').value = '';
+                document.getElementById('exactMatchCheckbox').checked = false;
+                document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    cb.checked = false;
+                });
+                applyFilters();
+            });
+        }
+
+        async function loadExcel() {
+            const status = document.getElementById('statusDiv');
+            try {
+                console.log('📁 Buscando archivo Excel...');
+                status.innerHTML = '⏳ Cargando Excel...';
+
+                const excelFile = 'excel.xlsx';
+                
+                const response = await fetch(excelFile);
+                console.log(`📊 Respuesta: ${response.status}`);
+
+                if (!response.ok) {
+                    throw new Error(`No se encontró: ${response.status}`);
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                console.log(`✅ Excel descargado: ${arrayBuffer.byteLength} bytes`);
+                
+                parseExcelFile(arrayBuffer);
+            } catch (error) {
+                console.error('❌ Error:', error);
+                status.innerHTML = `<span class="error">❌ ${error.message}<br>Carga un archivo Excel manualmente</span>`;
+            }
+        }
+
+        function parseExcelFile(arrayBuffer) {
+            try {
+                console.log('🔄 Parseando Excel con XLSX...');
+                
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                console.log('📖 Hojas encontradas:', workbook.SheetNames);
+
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                console.log(`📊 Filas totales: ${rows.length}`);
+                console.log('Primeras 3 filas:', rows.slice(0, 3));
+
+                // Encontrar encabezado
+                let headerIdx = -1;
+                for (let i = 0; i < rows.length; i++) {
+                    if (rows[i][0] === 'Máquina') {
+                        headerIdx = i;
+                        console.log(`✅ Encabezado en fila ${i}`);
+                        break;
+                    }
+                }
+
+                if (headerIdx === -1) {
+                    throw new Error('No se encontró encabezado "Máquina"');
+                }
+
+                // Parsear datos
+                allData = [];
+                for (let i = headerIdx + 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row[0] || !String(row[0]).trim()) continue;
+
+                    allData.push({
+                        machine: String(row[0] || '').trim(),
+                        ip: String(row[1] || '').trim(),
+                        os: String(row[2] || '').trim(),
+                        difficulty: String(row[3] || '').trim(),
+                        techniques: String(row[4] || '').split('\n').map(t => t.trim()).filter(t => t),
+                        certificates: String(row[5] || '').split('\n').map(c => c.trim()).filter(c => c),
+                        writeup: String(row[6] || '').trim(),
+                        solved: String(row[7] || '').trim()
+                    });
+                }
+
+                console.log(`✅ ${allData.length} máquinas parseadas`);
+                console.log('Primeras máquinas:', allData.slice(0, 3));
+
+                // Extraer filtros
+                const osSet = new Set();
+                const diffSet = new Set();
+                const certSet = new Set();
+                const techSet = new Set();
+
+                allData.forEach(item => {
+                    if (item.os) osSet.add(item.os);
+                    if (item.difficulty) diffSet.add(item.difficulty);
+                    item.certificates.forEach(c => certSet.add(c));
+                    item.techniques.forEach(t => techSet.add(t));
+                });
+
+                console.log('📊 Filtros extraídos:');
+                console.log('  SOs:', Array.from(osSet));
+                console.log('  Dificultades:', Array.from(diffSet));
+                console.log('  Like:', certSet.size);
+                console.log('  Técnicas:', techSet.size);
+
+                createFilters(
+                    Array.from(osSet).sort(),
+                    Array.from(diffSet).sort(),
+                    Array.from(certSet).sort(),
+                    Array.from(techSet).sort()
+                );
+
+                applyFilters();
+                document.getElementById('statusDiv').innerHTML = `<span class="text-green-400">✅ ${allData.length} máquinas cargadas</span>`;
+            } catch (error) {
+                console.error('❌ Error parseando:', error);
+                document.getElementById('statusDiv').innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        function createFilters(osArr, diffArr, certArr, techArr) {
+            const createCheckboxes = (arr, type, container) => {
+                container.innerHTML = '';
+                arr.forEach(val => {
+                    const label = document.createElement('label');
+                    label.className = 'flex items-center gap-2 cursor-pointer hover:text-green-300 transition-colors';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'w-4 h-4 cursor-pointer accent-green-500';
+                    checkbox.onchange = () => {
+                        const idx = filters[type].indexOf(val);
+                        if (checkbox.checked && idx === -1) {
+                            filters[type].push(val);
+                        } else if (!checkbox.checked && idx > -1) {
+                            filters[type].splice(idx, 1);
+                        }
+                        applyFilters();
+                    };
+                    
+                    const span = document.createElement('span');
+                    span.textContent = val;
+                    span.className = 'text-sm';
+                    
+                    label.appendChild(checkbox);
+                    label.appendChild(span);
+                    container.appendChild(label);
+                });
+            };
+
+            createCheckboxes(diffArr, 'difficulty', document.getElementById('difficultyFilters'));
+            createCheckboxes(osArr, 'os', document.getElementById('osFilters'));
+            createCheckboxes(certArr, 'certificates', document.getElementById('certificateFilters'));
+            createCheckboxes(techArr, 'techniques', document.getElementById('techniqueFilters'));
+        }
+
+        function applyFilters() {
+            filteredData = allData.filter(item => {
+                if (filters.search) {
+                    const s = filters.search;
+                    if (filters.exactMatch) {
+                        // Coincidencia exacta: solo nombre de máquina
+                        if (!item.machine.toLowerCase().includes(s)) {
+                            return false;
+                        }
+                    } else {
+                        // Búsqueda normal: en múltiples campos
+                        if (!item.machine.toLowerCase().includes(s) &&
+                            !item.ip.includes(s) &&
+                            !item.techniques.some(t => t.toLowerCase().includes(s)) &&
+                            !item.certificates.some(c => c.toLowerCase().includes(s))) {
+                            return false;
+                        }
+                    }
+                }
+
+                if (filters.os.length && !filters.os.includes(item.os)) return false;
+                if (filters.difficulty.length && !filters.difficulty.includes(item.difficulty)) return false;
+                if (filters.certificates.length && !filters.certificates.some(c => item.certificates.includes(c))) return false;
+                if (filters.techniques.length && !filters.techniques.some(t => item.techniques.includes(t))) return false;
+
+                return true;
+            });
+
+            renderTable();
+        }
+
+        function renderTable() {
+            const container = document.getElementById('machineTableBody');
+            document.getElementById('resultCount').textContent = `(${filteredData.length})`;
+
+            if (!filteredData.length) {
+                container.innerHTML = '<div class="text-center py-12 text-gray-400 col-span-full">No hay resultados con estos filtros</div>';
+                return;
+            }
+
+            container.innerHTML = filteredData.map(item => `
+                <div class="bg-gradient-to-br from-green-500/5 to-transparent border-2 border-green-500 rounded-lg p-4 hover:border-green-400 transition-all hover:shadow-lg hover:shadow-green-500/20">
+                    <div class="flex justify-between items-start mb-3">
+                        <h3 class="text-lg font-bold text-green-400">${item.machine}</h3>
+                        <span class="${getDifficultyBadgeClass(item.difficulty)} px-3 py-1 rounded text-xs font-bold border">${item.difficulty}</span>
+                    </div>
+                    
+                    <div class="space-y-2 text-sm mb-4">
+                        <div><span class="text-green-500">IP</span> ${item.ip}</div>
+                        <div><span class="text-green-500">OS</span> ${item.os}</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="text-green-500 font-bold text-xs mb-2">TÉCNICAS:</div>
+                        <div class="flex flex-wrap gap-1">
+                            ${item.techniques.map(t => `<span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs border border-green-500/50">${t}</span>`).join('')}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="text-green-500 font-bold text-xs mb-2">LIKE:</div>
+                        <div class="flex flex-wrap gap-1">
+                            ${item.certificates.map(c => `<span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/50">${c}</span>`).join('')}
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button class="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 px-3 py-2 rounded border border-green-500 transition-all text-xs font-bold">[✓] RESUELTA</button>
+                        ${item.writeup ? `<a href="${item.writeup}" target="_blank" class="flex-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-3 py-2 rounded border border-blue-500 transition-all text-xs font-bold text-center">[VER DETALLES]</a>` : '<button class="flex-1 bg-gray-500/20 text-gray-400 px-3 py-2 rounded border border-gray-500 text-xs font-bold" disabled>[VER DETALLES]</button>'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getDifficultyBadgeClass(difficulty) {
+            const diff = difficulty.toLowerCase();
+            if (diff === 'fácil') return 'bg-green-500/20 text-green-400 border-green-500';
+            if (diff === 'media') return 'bg-yellow-500/20 text-yellow-400 border-yellow-500';
+            if (diff === 'difícil') return 'bg-red-500/20 text-red-400 border-red-500';
+            if (diff === 'insane') return 'bg-pink-500/20 text-pink-400 border-pink-500';
+            return 'bg-green-500/20 text-green-400 border-green-500';
+        }
+
+        function downloadData() {
+            if (!filteredData.length) {
+                alert('No hay datos para descargar');
+                return;
+            }
+
+            const csv = [
+                ['Máquina', 'IP', 'SO', 'Dificultad', 'Técnicas', 'Like', 'Writeup'],
+                ...filteredData.map(i => [
+                    i.machine,
+                    i.ip,
+                    i.os,
+                    i.difficulty,
+                    i.techniques.join('; '),
+                    i.certificates.join('; '),
+                    i.writeup
+                ])
+            ];
+
+            const content = csv.map(r => 
+                r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')
+            ).join('\n');
+
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `hacking-vault-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+    </script>
+</body>
+</html>
